@@ -26,16 +26,81 @@ void KalmanFilter::Predict() {
   /**
    * TODO: predict the state
    */
+  x_ = F_ * x_;
+  MatrixXd Ft = F_.transpose();
+  P_ = F_ * P_ * Ft + Q_;
 }
 
 void KalmanFilter::Update(const VectorXd &z) {
   /**
    * TODO: update the state by using Kalman Filter equations
    */
+  VectorXd z_pred = H_ * x_;
+  VectorXd y = z - z_pred;
+  MatrixXd Ht = H_.transpose();
+  MatrixXd S = H_ * P_ * Ht + R_;
+  MatrixXd Si = S.inverse();
+  MatrixXd PHt = P_ * Ht;
+  MatrixXd K = PHt * Si;
+
+  //new estimate
+  x_ = x_ + (K * y);
+  long x_size = x_.size();
+  MatrixXd I = MatrixXd::Identity(x_size, x_size);
+  P_ = (I - K * H_) * P_;
 }
 
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
   /**
    * TODO: update the state by using Extended Kalman Filter equations
    */
+  Eigen::VectorXd z_pred;
+  z_pred = VectorXd(3); 
+  float px = x_(0);
+  float py = x_(1);
+  float vx = x_(2);
+  float vy = x_(3);
+  float ro, theta, ro_dot;
+
+  if(fabs(px) < 0.0001 or fabs(py) < 0.0001){
+    if(fabs(px) < 0.0001){
+      px = 0.0001;
+      cout << "px too small" << endl;
+    }
+    if(fabs(py) < 0.0001){
+      py = 0.0001;
+      cout << "py too small" << endl;
+    }
+    ro = sqrt(px*px + py*py);
+    theta = 0;
+    ro_dot = 0;
+  } else {
+    ro = sqrt(px*px + py*py);
+    theta = atan2(py, px); //  arc tangent of y/x, in the interval [-pi,+pi] radians.
+    ro_dot = (px*vx + py*vy) /ro;
+  }      
+  z_pred << ro, theta, ro_dot;
+  
+  VectorXd y = z - z_pred;
+  while (y(1)>3.1415926 || y(1)<-3.1415926) {
+    if (y(1)>3.1415926) {
+    	y(1) = y(1) - 6.2831852;
+    }
+    
+    if (y(1)<-3.1415926) {
+    	y(1) = y(1) + 6.2831852;
+    }
+  }
+  
+  MatrixXd Ht = H_.transpose();
+  MatrixXd S = H_ * P_ * Ht + R_;
+  MatrixXd Si = S.inverse();
+  MatrixXd PHt = P_ * Ht;
+  MatrixXd K = PHt * Si;
+
+  //new estimate
+  x_ = x_ + (K * y);
+  long x_size = x_.size();
+  MatrixXd I = MatrixXd::Identity(x_size, x_size);
+  P_ = (I - K * H_) * P_;
 }
